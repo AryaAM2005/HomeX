@@ -1,5 +1,5 @@
 import { Notification } from '../models/Notification.js';
-import { emitToUsers } from '../sockets/index.js';
+import { emitToUsers } from './live.js';
 
 const isDuplicate = (err) => err.code === 11000;
 
@@ -19,7 +19,7 @@ export async function notify(userId, { title, body, link, dedupeKey }) {
 
   try {
     const notification = await Notification.create({ userId, title, body, link, dedupeKey });
-    emitToUsers([userId], 'notification:new', toPublicNotification(notification));
+    await emitToUsers([userId], 'notification:new', toPublicNotification(notification));
     return notification;
   } catch (err) {
     if (isDuplicate(err)) return null;

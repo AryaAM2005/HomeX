@@ -1,12 +1,16 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
-  "installCommand": "npm ci -w client",
+  "installCommand": "npm ci --ignore-scripts",
   "buildCommand": "npm run build -w client",
   "outputDirectory": "client/dist",
+  "regions": ["bom1"],
+  "functions": {
+    "api/index.js": { "maxDuration": 60 }
+  },
+  "crons": [{ "path": "/api/jobs/tick", "schedule": "0 16 * * *" }],
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://homex-api.onrender.com/api/:path*" },
-    { "source": "/socket.io/:path*", "destination": "https://homex-api.onrender.com/socket.io/:path*" },
+    { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

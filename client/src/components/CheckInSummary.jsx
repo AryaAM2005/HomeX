@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { useLiveEvents } from '../api/socket';
+import { useLiveEvents } from '../api/live';
 import { moodLabel } from '../data/care';
 import { useApi } from '../hooks/useApi';
 import { formatDateTime } from '../utils/format';

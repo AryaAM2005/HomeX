@@ -8,7 +8,6 @@ export default defineConfig({
     // Keeps the session cookie first-party during development.
     proxy: {
       '/api': 'http://localhost:5000',
-      '/socket.io': { target: 'http://localhost:5000', ws: true },
     },
   },
 });

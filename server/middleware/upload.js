@@ -1,6 +1,7 @@
 import multer from 'multer';
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
+// Vercel refuses any request over 4.5 MB.
+const MAX_FILE_BYTES = 4 * 1024 * 1024;
 
 const SIGNATURES = [
   { mime: 'application/pdf', extension: '.pdf', bytes: [0x25, 0x50, 0x44, 0x46] },

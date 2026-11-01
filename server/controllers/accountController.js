@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
 import { buildExport, deleteAccount } from '../utils/accountData.js';
 import { ApiError } from '../utils/ApiError.js';

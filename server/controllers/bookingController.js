@@ -6,7 +6,7 @@ import { Parent } from '../models/Parent.js';
 import { fromPoint } from '../models/point.js';
 import { Review } from '../models/Review.js';
 import { Subscription } from '../models/Subscription.js';
-import { emitToUsers } from '../sockets/index.js';
+import { emitToUsers } from '../utils/live.js';
 import { ApiError } from '../utils/ApiError.js';
 import { chargeForVisit, quoteVisit, refundVisit } from '../utils/billing.js';
 import { distanceKm } from '../utils/geo.js';
@@ -162,7 +162,7 @@ export async function createBooking(req, res) {
     body: `${SERVICE_CATALOG[serviceType].label} for ${parent.name}.`,
     link: '/caregiver/bookings',
   });
-  emitToUsers([caregiverId, req.user.id], 'booking:updated', { id: booking.id });
+  await emitToUsers([caregiverId, req.user.id], 'booking:updated', { id: booking.id });
 
   res.status(201).json({ booking: { id: booking.id, status: booking.status } });
 }
@@ -314,7 +314,7 @@ export async function changeBookingStatus(req, res) {
       link: '/caregiver/bookings',
     });
   }
-  emitToUsers([booking.customerId, booking.caregiverId], 'booking:updated', { id: booking.id });
+  await emitToUsers([booking.customerId, booking.caregiverId], 'booking:updated', { id: booking.id });
 
   res.json({ booking: { id: booking.id, status: booking.status } });
 }
@@ -366,5 +366,5 @@ export async function expireBooking(booking) {
     body: `Nobody answered your ${SERVICE_CATALOG[expired.serviceType].label.toLowerCase()} request in time. Any payment has been refunded.`,
     link: '/bookings',
   });
-  emitToUsers([expired.customerId, expired.caregiverId], 'booking:updated', { id: expired.id });
+  await emitToUsers([expired.customerId, expired.caregiverId], 'booking:updated', { id: expired.id });
 }

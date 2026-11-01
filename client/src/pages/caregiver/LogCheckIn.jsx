@@ -12,6 +12,7 @@ import { MOODS } from '../../data/care';
 import { useApi } from '../../hooks/useApi';
 import { useForm } from '../../hooks/useForm';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { shrinkImage } from '../../utils/shrinkImage';
 import { compact } from '../../utils/validators';
 
 const TYPE_OPTIONS = [
@@ -122,7 +123,7 @@ function CheckInForm({ visit }) {
           notes: form.notes,
         }),
       );
-      if (form.type === 'visit') body.append('photo', form.photo);
+      if (form.type === 'visit') body.append('photo', await shrinkImage(form.photo));
 
       const res = await api.post('/checkins', body);
       const { abnormalVitals } = res.data;

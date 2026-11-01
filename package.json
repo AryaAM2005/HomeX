@@ -14,6 +14,7 @@
     "start": "npm start -w server",
     "test": "npm test -w server",
     "seed": "npm run seed -w server",
+    "seed:deploy": "node --env-file=deploy.env server/seed.js",
     "wellness": "npm run wellness -w server",
     "lint": "eslint ."
   },
@@ -25,6 +26,6 @@
     "globals": "^17.14.0"
   },
   "engines": {
-    "node": ">=22"
+    "node": "24.x"
   }
 }

@@ -3,10 +3,10 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 
 export default [
-  { ignores: ['**/dist/**', '**/node_modules/**', 'server/.mongo-data/**', 'server/uploads/**'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', 'server/.mongo-data/**'] },
   js.configs.recommended,
   {
-    files: ['server/**/*.js', '*.js'],
+    files: ['server/**/*.js', 'api/**/*.js', '*.js'],
     languageOptions: { globals: globals.node },
   },
   {

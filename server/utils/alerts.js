@@ -1,6 +1,6 @@
 import { Alert } from '../models/Alert.js';
 import { User } from '../models/User.js';
-import { emitToAdmins, emitToUsers } from '../sockets/index.js';
+import { emitToAdmins, emitToUsers } from './live.js';
 import { notify } from './notifications.js';
 
 const TITLES = {
@@ -35,10 +35,10 @@ export function toPublicAlert(alert, parentName) {
 
 const recipients = (alert) => [alert.customerId, alert.careManagerId].filter(Boolean);
 
-export function announceUpdate(alert, parentName) {
+export async function announceUpdate(alert, parentName) {
   const payload = toPublicAlert(alert, parentName);
-  emitToUsers(recipients(alert), 'alert:updated', payload);
-  if (alert.escalatedAt) emitToAdmins('alert:updated', payload);
+  await emitToUsers(recipients(alert), 'alert:updated', payload);
+  if (alert.escalatedAt) await emitToAdmins('alert:updated', payload);
 }
 
 export async function escalateAlert(alert, parentName) {
@@ -53,8 +53,8 @@ export async function escalateAlert(alert, parentName) {
   if (!escalated) return null;
 
   const payload = toPublicAlert(escalated, parentName);
-  emitToAdmins('alert:new', payload);
-  emitToUsers(recipients(escalated), 'alert:updated', payload);
+  await emitToAdmins('alert:new', payload);
+  await emitToUsers(recipients(escalated), 'alert:updated', payload);
 
   const admins = await User.find({ role: 'admin', isActive: true }, '_id');
   await Promise.all(
@@ -91,8 +91,8 @@ export async function raiseAlert({ parent, type, message, raisedBy, raisedVia, d
     throw err;
   }
 
-  // The socket goes first: an emergency should not wait on anything else.
-  emitToUsers(recipients(alert), 'alert:new', toPublicAlert(alert, parent.name));
+  // The live event goes first: an emergency should not wait on anything else.
+  await emitToUsers(recipients(alert), 'alert:new', toPublicAlert(alert, parent.name));
 
   const content = { title: TITLES[type], body: `${parent.name}: ${message}` };
   await Promise.all([

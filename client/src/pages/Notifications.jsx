@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router';
 import { api } from '../api/client';
-import { useLiveEvents } from '../api/socket';
+import { useLiveEvents } from '../api/live';
 import LoadError from '../components/LoadError';
 import Loading from '../components/Loading';
 import { useApi } from '../hooks/useApi';

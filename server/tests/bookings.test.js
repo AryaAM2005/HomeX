@@ -1,18 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import request from 'supertest';
 
-const uploadDir = await mkdtemp(path.join(os.tmpdir(), 'homex-bookings-'));
-
 process.env.NODE_ENV = 'test';
 process.env.MONGODB_URI = 'mongodb://unused/homex';
 process.env.JWT_SECRET = 'test-secret-that-is-at-least-32-characters';
-process.env.UPLOAD_DIR = uploadDir;
 
 // Imported after the variables above, because env.js reads them on load.
 const { app } = await import('../app.js');
@@ -167,7 +161,6 @@ describe('bookings, reports and reviews', () => {
   after(async () => {
     await mongoose.disconnect();
     await mongo.stop();
-    await rm(uploadDir, { recursive: true, force: true });
   });
 
   beforeEach(async () => {

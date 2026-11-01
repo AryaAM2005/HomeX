@@ -9,9 +9,11 @@ import Loading from '../../components/Loading';
 import { useApi } from '../../hooks/useApi';
 import { useForm } from '../../hooks/useForm';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { shrinkImage } from '../../utils/shrinkImage';
 import { compact } from '../../utils/validators';
 
 const MAX_FILES = 5;
+const MAX_TOTAL_BYTES = 4 * 1024 * 1024;
 
 const VITAL_FIELDS = [
   { name: 'bpSystolic', label: 'BP, upper number (mmHg)' },
@@ -40,6 +42,10 @@ function ReportForm({ booking }) {
         doctorName: form.doctorName.trim().length < 2 ? 'Enter the doctor or lab name' : undefined,
         diagnosisSummary:
           form.diagnosisSummary.trim().length < 10 ? 'Write what the doctor or lab said' : undefined,
+        files:
+          form.files.reduce((total, file) => total + file.size, 0) > MAX_TOTAL_BYTES
+            ? 'Keep the files under 4 MB in total'
+            : undefined,
         ...Object.fromEntries(
           VITAL_FIELDS.filter(({ name }) => {
             const text = form[`vitals.${name}`].trim();
@@ -77,10 +83,11 @@ function ReportForm({ booking }) {
     },
   });
 
-  const addFiles = (event) => {
+  const addFiles = async (event) => {
     const chosen = [...event.target.files];
     event.target.value = '';
-    setValue('files', [...values.files, ...chosen].slice(0, MAX_FILES));
+    const shrunk = await Promise.all(chosen.map(shrinkImage));
+    setValue('files', [...values.files, ...shrunk].slice(0, MAX_FILES));
   };
 
   return (
@@ -111,7 +118,7 @@ function ReportForm({ booking }) {
 
       <div>
         <p className="font-semibold">Photos of prescriptions or lab reports (optional)</p>
-        <p className="text-base text-ink-soft">PDF, JPG or PNG, up to 5 MB each.</p>
+        <p className="text-base text-ink-soft">PDF, JPG or PNG, up to 4 MB in total.</p>
         {values.files.length > 0 && (
           <ul className="mt-2 divide-y divide-line">
             {values.files.map((file, index) => (

@@ -1,18 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import request from 'supertest';
 
-const uploadDir = await mkdtemp(path.join(os.tmpdir(), 'homex-uploads-'));
-
 process.env.NODE_ENV = 'test';
 process.env.MONGODB_URI = 'mongodb://unused/homex';
 process.env.JWT_SECRET = 'test-secret-that-is-at-least-32-characters';
-process.env.UPLOAD_DIR = uploadDir;
 
 // Imported after the variables above, because env.js reads them on load.
 const { app } = await import('../app.js');
@@ -21,6 +15,7 @@ const { CaregiverProfile } = await import('../models/CaregiverProfile.js');
 const { Parent } = await import('../models/Parent.js');
 const { Plan } = await import('../models/Plan.js');
 const { Subscription } = await import('../models/Subscription.js');
+const { StoredFile } = await import('../models/StoredFile.js');
 const { User } = await import('../models/User.js');
 const { ensurePlans } = await import('../utils/ensurePlans.js');
 
@@ -130,7 +125,6 @@ describe('parents, caregivers and assignment', () => {
   after(async () => {
     await mongoose.disconnect();
     await mongo.stop();
-    await rm(uploadDir, { recursive: true, force: true });
   });
 
   beforeEach(async () => {
@@ -299,28 +293,28 @@ describe('parents, caregivers and assignment', () => {
       assert.equal(res.body.profile.documents[0].file, undefined);
     });
 
-    it('refuses files over 5 MB', async () => {
+    it('refuses files over 4 MB', async () => {
       const { agent } = await signUp('caregiver');
       const res = await agent
         .post('/api/caregivers/me/documents')
         .field('type', 'id')
-        .attach('file', Buffer.concat([PDF, Buffer.alloc(5 * 1024 * 1024)]), 'big.pdf')
+        .attach('file', Buffer.concat([PDF, Buffer.alloc(4 * 1024 * 1024)]), 'big.pdf')
         .expect(400);
-      assert.match(res.body.error.message, /5 MB/);
+      assert.match(res.body.error.message, /4 MB/);
     });
 
     it('removes the file when a document is deleted', async () => {
       const { agent } = await signUp('caregiver');
-      const before = (await readdir(uploadDir)).length;
+      const before = await StoredFile.countDocuments();
       const res = await agent
         .post('/api/caregivers/me/documents')
         .field('type', 'id')
         .attach('file', PDF, 'id.pdf')
         .expect(201);
-      assert.equal((await readdir(uploadDir)).length, before + 1);
+      assert.equal(await StoredFile.countDocuments(), before + 1);
 
       await agent.delete(`/api/caregivers/me/documents/${res.body.profile.documents[0].id}`).expect(200);
-      assert.equal((await readdir(uploadDir)).length, before);
+      assert.equal(await StoredFile.countDocuments(), before);
     });
 
     it('lets only the owner and admin open a document', async () => {

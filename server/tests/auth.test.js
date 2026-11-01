@@ -15,6 +15,8 @@ const { app } = await import('../app.js');
 const { requireAuth, requireRole } = await import('../middleware/auth.js');
 const { errorHandler } = await import('../middleware/errorHandler.js');
 const { ConsentLog } = await import('../models/ConsentLog.js');
+const { MongoRateLimitStore } = await import('../middleware/rateLimit.js');
+const { RateLimit } = await import('../models/RateLimit.js');
 const { User } = await import('../models/User.js');
 
 // Stand-in for the role-protected routes that arrive in later phases.
@@ -227,6 +229,26 @@ describe('auth API', () => {
 
     assert.equal(known.status, unknown.status);
     assert.deepEqual(known.body, unknown.body);
+  });
+
+  it('NFR-1 counts rate limits in the database, so every server shares them', async () => {
+    const store = new MongoRateLimitStore('test');
+    store.init({ windowMs: 60_000 });
+
+    assert.equal((await store.increment('ip')).totalHits, 1);
+    await Promise.all([store.increment('ip'), store.increment('ip'), store.increment('ip')]);
+    assert.equal((await store.increment('ip')).totalHits, 5);
+
+    await store.decrement('ip');
+    assert.equal((await store.increment('ip')).totalHits, 5);
+
+    await Promise.all([store.increment('fresh'), store.increment('fresh'), store.increment('fresh')]);
+    assert.equal((await store.increment('fresh')).totalHits, 4);
+
+    await RateLimit.updateOne({ _id: 'test:ip' }, { resetAt: new Date(Date.now() - 1000) });
+    const restarted = await store.increment('ip');
+    assert.equal(restarted.totalHits, 1);
+    assert.ok(restarted.resetTime > new Date());
   });
 
   it('NFR-10 returns JSON errors for unknown routes and malformed bodies', async () => {

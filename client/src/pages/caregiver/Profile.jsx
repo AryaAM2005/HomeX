@@ -14,6 +14,7 @@ import { DOCUMENT_GROUPS, LANGUAGES, SERVICE_OPTIONS } from '../../data/care';
 import { useApi } from '../../hooks/useApi';
 import { useForm } from '../../hooks/useForm';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { shrinkImage } from '../../utils/shrinkImage';
 import { compact } from '../../utils/validators';
 
 const LANGUAGE_OPTIONS = LANGUAGES.map((language) => ({ value: language, label: language }));
@@ -49,11 +50,11 @@ function useUpload(url, onDone) {
   const upload = async (file, fields = {}) => {
     const body = new FormData();
     Object.entries(fields).forEach(([name, value]) => body.append(name, value));
-    body.append('file', file);
 
     setBusy(true);
     setError('');
     try {
+      body.append('file', await shrinkImage(file));
       await api.post(url, body);
       onDone();
     } catch (err) {
@@ -287,7 +288,7 @@ export default function CaregiverProfilePage() {
         <section className="mt-10">
           <h2 className="text-2xl">Your documents</h2>
           <p className="mt-1 text-ink-soft">
-            Only you and HOMEX admins can open these. Use a PDF, JPG or PNG up to 5 MB.
+            Only you and HOMEX admins can open these. Use a PDF, JPG or PNG up to 4 MB.
             {profile.verificationStatus === 'approved' &&
               ' Changing a document sends your profile back for review.'}
           </p>

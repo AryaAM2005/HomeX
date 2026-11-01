@@ -4,7 +4,7 @@ import { User } from '../models/User.js';
 import { detectFileType } from '../middleware/upload.js';
 import { ApiError } from '../utils/ApiError.js';
 import { blurCoordinate } from '../utils/geo.js';
-import { deleteFile, filePath, saveFile } from '../utils/storage.js';
+import { deleteFile, saveFile, sendFile } from '../utils/storage.js';
 import { canSeeCaregiverPhone } from './assignmentController.js';
 import { listCaregiverReviews } from './reviewController.js';
 
@@ -247,9 +247,8 @@ export async function getCaregiverPhoto(req, res) {
   if (!profile?.photo?.file) throw new ApiError(404, 'No photo');
 
   res.type(profile.photo.mime);
-  // Allows the deployed frontend, on a different domain, to show the image.
   res.set('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.sendFile(filePath(profile.photo.file));
+  await sendFile(res, profile.photo.file);
 }
 
 export async function getCaregiverDocument(req, res) {
@@ -262,5 +261,5 @@ export async function getCaregiverDocument(req, res) {
 
   res.type(document.mime);
   res.set('Cache-Control', 'private, no-store');
-  res.sendFile(filePath(document.file));
+  await sendFile(res, document.file);
 }

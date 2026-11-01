@@ -1,14 +1,13 @@
 import crypto from 'node:crypto';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { ConsentLog } from '../models/ConsentLog.js';
 import { User } from '../models/User.js';
-import { disconnectUser } from '../sockets/index.js';
 import { ApiError } from '../utils/ApiError.js';
 import { env } from '../utils/env.js';
 import { sendMail } from '../utils/mailer.js';
 import { endSession, readSession, startSession } from '../utils/session.js';
 
-const SALT_ROUNDS = 12;
+const SALT_ROUNDS = 10;
 const RESET_LINK_MINUTES = 60;
 const CONSENT_POLICY_VERSION = '2026-11';
 
@@ -65,7 +64,6 @@ export async function logout(req, res) {
   const session = readSession(req);
   if (session) {
     await User.updateOne({ _id: session.sub, tokenVersion: session.tv }, { $inc: { tokenVersion: 1 } });
-    disconnectUser(session.sub);
   }
 
   endSession(res);
@@ -112,7 +110,6 @@ export async function resetPassword(req, res) {
   user.resetTokenExpires = undefined;
   user.tokenVersion += 1;
   await user.save();
-  disconnectUser(user.id);
 
   endSession(res);
   res.json({ message: 'Your password has been changed. You can log in now.' });

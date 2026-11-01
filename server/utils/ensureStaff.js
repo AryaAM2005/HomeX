@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
 import { env } from './env.js';
 
@@ -30,7 +30,7 @@ export async function ensureStaff() {
     await User.create({
       ...account,
       email,
-      passwordHash: await bcrypt.hash(password, 12),
+      passwordHash: await bcrypt.hash(password, 10),
       isVerified: true,
     });
     console.log(`Created ${account.role} account ${email}`);

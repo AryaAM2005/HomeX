@@ -4,13 +4,13 @@ import { CareReport } from '../models/CareReport.js';
 import { Parent } from '../models/Parent.js';
 import { User } from '../models/User.js';
 import { WellnessReport } from '../models/WellnessReport.js';
-import { emitToUsers } from '../sockets/index.js';
+import { emitToUsers } from '../utils/live.js';
 import { raiseAlert } from '../utils/alerts.js';
 import { ApiError } from '../utils/ApiError.js';
 import { notify } from '../utils/notifications.js';
 import { findParentFor } from '../utils/parentAccess.js';
 import { SERVICE_CATALOG } from '../utils/services.js';
-import { filePath, saveFile } from '../utils/storage.js';
+import { saveFile, sendFile } from '../utils/storage.js';
 import { findAbnormalVitals } from '../utils/vitals.js';
 
 function toPublicCareReport(report, caregiverName, serviceLabel, visitDate) {
@@ -88,7 +88,7 @@ export async function submitCareReport(req, res) {
       });
     }
   }
-  emitToUsers([booking.customerId, booking.caregiverId], 'booking:updated', { id: booking.id });
+  await emitToUsers([booking.customerId, booking.caregiverId], 'booking:updated', { id: booking.id });
 
   res.status(201).json({ report: { id: report.id }, abnormalVitals: findAbnormalVitals(req.body.vitals) });
 }
@@ -149,5 +149,5 @@ export async function getReportAttachment(req, res) {
 
   res.type(attachment.mime);
   res.set('Cache-Control', 'private, no-store');
-  res.sendFile(filePath(attachment.file));
+  await sendFile(res, attachment.file);
 }

@@ -9,6 +9,7 @@ export const api = axios.create({
 export const apiUrl = (path) => `${api.defaults.baseURL}${path}`;
 
 export function getErrorMessage(err) {
+  if (err.response?.status === 413) return 'Those files are too large. Please keep them under 4 MB in total.';
   if (err.response?.data?.error?.message) return err.response.data.error.message;
   return "We can't reach HomeX right now. Please check your connection and try again.";
 }

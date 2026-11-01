@@ -1,20 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { createServer } from 'node:http';
-import os from 'node:os';
-import path from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
-import { io as connectSocket } from 'socket.io-client';
 import request from 'supertest';
-
-const uploadDir = await mkdtemp(path.join(os.tmpdir(), 'homex-monitoring-'));
 
 process.env.NODE_ENV = 'test';
 process.env.MONGODB_URI = 'mongodb://unused/homex';
 process.env.JWT_SECRET = 'test-secret-that-is-at-least-32-characters';
-process.env.UPLOAD_DIR = uploadDir;
+process.env.CRON_SECRET = 'test-cron-secret';
 
 // Imported after the variables above, because env.js reads them on load.
 const { app } = await import('../app.js');
@@ -28,14 +21,16 @@ const {
 const { Alert } = await import('../models/Alert.js');
 const { Assignment } = await import('../models/Assignment.js');
 const { CheckIn } = await import('../models/CheckIn.js');
+const { JobRun } = await import('../models/JobRun.js');
+const { LiveEvent } = await import('../models/LiveEvent.js');
 const { Medicine } = await import('../models/Medicine.js');
 const { Notification } = await import('../models/Notification.js');
 const { Parent } = await import('../models/Parent.js');
 const { Plan } = await import('../models/Plan.js');
 const { Subscription } = await import('../models/Subscription.js');
 const { User } = await import('../models/User.js');
-const { initSockets } = await import('../sockets/index.js');
 const { ensurePlans } = await import('../utils/ensurePlans.js');
+const { runAllDueJobs, runDueJobs } = await import('../utils/scheduler.js');
 const { addIstMinutes, istDate, istMonth, istTime } = await import('../utils/time.js');
 const { findAbnormalVitals } = await import('../utils/vitals.js');
 
@@ -141,7 +136,6 @@ describe('check-ins, medicines and alerts', () => {
   after(async () => {
     await mongoose.disconnect();
     await mongo.stop();
-    await rm(uploadDir, { recursive: true, force: true });
   });
 
   beforeEach(async () => {
@@ -760,139 +754,202 @@ describe('check-ins, medicines and alerts', () => {
   });
 
   describe('NFR-2 and NFR-5 live events', () => {
-    let httpServer;
-    let socketServer;
-    let url;
-    const sockets = [];
+    const start = async (person) => (await person.agent.get('/api/live').expect(200)).body.now;
 
-    const connect = (cookie) =>
-      new Promise((resolve, reject) => {
-        const socket = connectSocket(url, {
-          extraHeaders: cookie ? { Cookie: cookie } : {},
-          transports: ['websocket'],
-          reconnection: false,
-        });
-        sockets.push(socket);
-        socket.once('connect', () => resolve(socket));
-        socket.once('connect_error', reject);
-      });
+    const eventsSince = async (person, after) => {
+      const res = await person.agent.get('/api/live').query({ after }).expect(200);
+      return res.body.events;
+    };
 
-    const nextEvent = (socket, event, timeout = 5000) =>
-      new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error(`No ${event} in ${timeout} ms`)), timeout);
-        socket.once(event, (payload) => {
-          clearTimeout(timer);
-          resolve(payload);
-        });
-      });
+    const find = (events, name) => events.find(({ event }) => event === name);
 
-    before(async () => {
-      httpServer = createServer(app);
-      socketServer = initSockets(httpServer);
-      await new Promise((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
-      url = `http://127.0.0.1:${httpServer.address().port}`;
+    it('refuses polling without a valid session', async () => {
+      await request(app).get('/api/live').expect(401);
+      await request(app).get('/api/live').set('Cookie', 'homex_session=forged').expect(401);
     });
 
-    after(async () => {
-      sockets.forEach((socket) => socket.disconnect());
-      await socketServer.close();
+    it('never lets a browser store the reply', async () => {
+      const { customer } = await createFamily();
+      const res = await customer.agent.get('/api/live').expect(200);
+      assert.equal(res.headers['cache-control'], 'no-store');
     });
 
-    it('refuses connections without a valid session', async () => {
-      await assert.rejects(connect(), /log in/);
-      await assert.rejects(connect('homex_session=forged'), /log in/);
-    });
-
-    it('delivers an SOS to the family and care manager within 5 seconds', async () => {
+    it('holds an SOS for the family and care manager as soon as it is raised', async () => {
       const { customer, manager, parentId } = await createFamily();
-      const familySocket = await connect(customer.cookie);
-      const managerSocket = await connect(manager.cookie);
-      const started = Date.now();
+      const after = await start(customer);
 
-      const arrivals = [nextEvent(familySocket, 'alert:new'), nextEvent(managerSocket, 'alert:new')];
       await customer.agent.post('/api/alerts/sos').send({ parentId }).expect(201);
-      const [atFamily, atManager] = await Promise.all(arrivals);
 
-      assert.ok(Date.now() - started < 5000);
-      assert.equal(atFamily.type, 'sos');
-      assert.equal(atManager.parent.name, 'Lakshmi Das');
+      const atFamily = find(await eventsSince(customer, after), 'alert:new');
+      const atManager = find(await eventsSince(manager, after), 'alert:new');
+
+      assert.equal(atFamily.payload.type, 'sos');
+      assert.equal(atManager.payload.parent.name, 'Lakshmi Das');
     });
 
     it('never delivers an alert to another family', async () => {
       const { customer, parentId } = await createFamily();
       const other = await signUp();
-      const otherSocket = await connect(other.cookie);
-      let leaked = false;
-      otherSocket.on('alert:new', () => {
-        leaked = true;
-      });
+      const after = await start(other);
 
-      const familySocket = await connect(customer.cookie);
-      const arrival = nextEvent(familySocket, 'alert:new');
       await customer.agent.post('/api/alerts/sos').send({ parentId }).expect(201);
-      await arrival;
-      await new Promise((resolve) => setTimeout(resolve, 200));
 
-      assert.equal(leaked, false);
+      assert.deepEqual(await eventsSince(other, after), []);
+    });
+
+    it('ignores any attempt to read someone else', async () => {
+      const { customer, parentId } = await createFamily();
+      const other = await signUp();
+      const after = await start(other);
+
+      await customer.agent.post('/api/alerts/sos').send({ parentId }).expect(201);
+
+      const res = await other.agent
+        .get('/api/live')
+        .query({ after, userId: customer.user.id })
+        .expect(200);
+      assert.deepEqual(res.body.events, []);
+    });
+
+    it('refuses a date it cannot read', async () => {
+      const { customer } = await createFamily();
+      await customer.agent.get('/api/live').query({ after: 'yesterday-ish' }).expect(400);
     });
 
     it('sends alert:updated and checkin:new', async () => {
       const { customer, caregiver, manager, parentId } = await createFamily();
-      const familySocket = await connect(customer.cookie);
+      const after = await start(customer);
 
-      const checkIn = nextEvent(familySocket, 'checkin:new');
       await logCall(caregiver, parentId).expect(201);
-      assert.equal((await checkIn).parent.id, parentId);
-
       const raised = await customer.agent.post('/api/alerts/sos').send({ parentId }).expect(201);
-      const updated = nextEvent(familySocket, 'alert:updated');
       await manager.agent
         .patch(`/api/alerts/${raised.body.alert.id}`)
         .send({ action: 'acknowledge' })
         .expect(200);
-      assert.equal((await updated).status, 'acknowledged');
+
+      const events = await eventsSince(customer, after);
+      assert.equal(find(events, 'checkin:new').payload.parent.id, parentId);
+      assert.equal(find(events, 'alert:updated').payload.status, 'acknowledged');
     });
 
     it('tells admins when an SOS escalates', async () => {
       const { customer, parentId } = await createFamily();
       const admin = await signUp('admin');
-      const adminSocket = await connect(admin.cookie);
+      const after = await start(admin);
 
       await customer.agent.post('/api/alerts/sos').send({ parentId }).expect(201);
-      const escalated = nextEvent(adminSocket, 'alert:new');
       await escalateUnansweredSos(new Date(Date.now() + 6 * 60 * 1000));
 
-      assert.equal((await escalated).escalated, true);
+      assert.equal(find(await eventsSince(admin, after), 'alert:new').payload.escalated, true);
     });
 
-    it('disconnects the live connection on logout', async () => {
+    it('stops delivering on logout', async () => {
       const { agent, cookie } = await signUp();
-      const socket = await connect(cookie);
-      const closed = nextEvent(socket, 'disconnect');
+      await agent.get('/api/live').expect(200);
 
       await agent.post('/api/auth/logout').expect(204);
-      await closed;
 
-      await assert.rejects(connect(cookie), /log in/);
+      await request(app).get('/api/live').set('Cookie', cookie).expect(401);
     });
 
-    it('ignores anything a client tries to send', async () => {
-      const { customer } = await createFamily();
-      const other = await createFamily();
-      const socket = await connect(customer.cookie);
-      let leaked = false;
-      socket.on('alert:new', () => {
-        leaked = true;
-      });
+    it('lets the database clear events after an hour', async () => {
+      await LiveEvent.init();
+      const indexes = await LiveEvent.collection.indexes();
+      const ttl = indexes.find(({ key }) => key.createdAt === 1 && !key.userId);
+      assert.equal(ttl.expireAfterSeconds, 3600);
+    });
+  });
 
-      socket.emit('join', `user:${other.customer.user.id}`);
-      await other.customer.agent
-        .post('/api/alerts/sos')
-        .send({ parentId: other.parentId })
-        .expect(201);
-      await new Promise((resolve) => setTimeout(resolve, 200));
+  describe('scheduled work without a running server', () => {
+    const SOON = 60 * 1000;
 
-      assert.equal(leaked, false);
+    async function overdueSos() {
+      const { customer, parentId } = await createFamily();
+      const raised = await customer.agent.post('/api/alerts/sos').send({ parentId }).expect(201);
+      const { id } = raised.body.alert;
+      await Alert.collection.updateOne(
+        { _id: new mongoose.Types.ObjectId(id) },
+        { $set: { createdAt: new Date(Date.now() - 6 * 60 * 1000) } },
+      );
+      return id;
+    }
+
+    beforeEach(async () => {
+      await JobRun.deleteMany({});
+    });
+
+    it('escalates an overdue SOS from any page poll', async () => {
+      const id = await overdueSos();
+
+      await runDueJobs(new Date(Date.now() + SOON));
+
+      assert.ok((await Alert.findById(id)).escalatedAt);
+    });
+
+    it('checks the schedule at most every 15 seconds on one server', async () => {
+      const base = Date.now() + 10 * SOON;
+      await runDueJobs(new Date(base));
+      await JobRun.deleteMany({});
+
+      await runDueJobs(new Date(base + 5000));
+      assert.equal(await JobRun.countDocuments(), 0);
+
+      await runDueJobs(new Date(base + 16_000));
+      assert.equal(await JobRun.countDocuments(), 4);
+    });
+
+    it('lets only one server run each job', async () => {
+      const now = new Date();
+      await Promise.all([runAllDueJobs(now), runAllDueJobs(now), runAllDueJobs(now)]);
+
+      const runs = await JobRun.find({});
+      assert.equal(runs.length, 4);
+
+      const before = runs.find(({ _id }) => _id === 'sos').nextRunAt;
+      await runAllDueJobs(new Date(now.getTime() + 1000));
+      const after = await JobRun.findById('sos');
+      assert.deepEqual(after.nextRunAt, before);
+    });
+
+    it('runs the job again once its time comes', async () => {
+      const now = new Date();
+      await runAllDueJobs(now);
+      await runAllDueJobs(new Date(now.getTime() + 31_000));
+
+      const sos = await JobRun.findById('sos');
+      const care = await JobRun.findById('care');
+      assert.equal(sos.nextRunAt.getTime(), now.getTime() + 61_000);
+      assert.equal(care.nextRunAt.getTime(), now.getTime() + 15 * SOON);
+    });
+
+    it('keeps running the others when one task fails', async () => {
+      const id = await overdueSos();
+      const original = Plan.find;
+      Plan.find = () => {
+        throw new Error('database hiccup');
+      };
+
+      try {
+        await runAllDueJobs();
+      } finally {
+        Plan.find = original;
+      }
+
+      assert.ok((await Alert.findById(id)).escalatedAt);
+    });
+
+    it('accepts the daily Vercel call only with its secret', async () => {
+      const id = await overdueSos();
+
+      await request(app).get('/api/jobs/tick').expect(401);
+      await request(app).get('/api/jobs/tick').set('Authorization', 'Bearer wrong').expect(401);
+      assert.equal((await Alert.findById(id)).escalatedAt, undefined);
+
+      await request(app)
+        .get('/api/jobs/tick')
+        .set('Authorization', 'Bearer test-cron-secret')
+        .expect(200);
+      assert.ok((await Alert.findById(id)).escalatedAt);
     });
   });
 

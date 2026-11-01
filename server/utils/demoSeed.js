@@ -1,7 +1,7 @@
 // Builds a complete demo: 2 care managers, 4 families (1 NRI), 6 parents, 10 verified
 // caregivers around Bhubaneswar, 2 weeks of check-ins, medicines and one open alert.
 // Safe to run again: anything already there is left alone.
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { Assignment } from '../models/Assignment.js';
 import { Booking } from '../models/Booking.js';
 import { CaregiverProfile } from '../models/CaregiverProfile.js';
@@ -523,7 +523,7 @@ export async function seedDemoData() {
   await ensureStaff();
   await ensurePlans();
 
-  const passwordHash = await bcrypt.hash(env.SEED_PASSWORD, 12);
+  const passwordHash = await bcrypt.hash(env.SEED_PASSWORD, 10);
   const caregivers = await seedCaregivers(passwordHash);
   const firstManager = await User.findOne({
     role: 'careManager',

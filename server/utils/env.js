@@ -13,14 +13,19 @@ const schema = z.object({
   PORT: z.coerce.number().int().positive().default(5000),
   MONGODB_URI: z.string().min(1, 'is required'),
   JWT_SECRET: z.string().min(32, 'must be at least 32 characters'),
-  CLIENT_URL: z.url().default('http://localhost:5173'),
+  CLIENT_URL: z
+    .url()
+    .default(
+      process.env.VERCEL_PROJECT_PRODUCTION_URL
+        ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+        : 'http://localhost:5173',
+    ),
+  CRON_SECRET: optionalText,
   ADMIN_EMAIL: optionalText,
   ADMIN_PASSWORD: optionalText,
   CARE_MANAGER_EMAIL: optionalText,
   CARE_MANAGER_PASSWORD: optionalText,
   SEED_PASSWORD: optionalText,
-  SEED_ON_START: optionalText,
-  UPLOAD_DIR: optionalText,
   SMTP_HOST: optionalText,
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: optionalText,

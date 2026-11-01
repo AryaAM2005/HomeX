@@ -15,7 +15,7 @@ import { Review } from '../models/Review.js';
 import { Subscription } from '../models/Subscription.js';
 import { User } from '../models/User.js';
 import { WellnessReport } from '../models/WellnessReport.js';
-import { disconnectUser, emitToUsers } from '../sockets/index.js';
+import { emitToUsers } from './live.js';
 import { ApiError } from './ApiError.js';
 import { refundVisit } from './billing.js';
 import { notify } from './notifications.js';
@@ -111,7 +111,7 @@ async function cancelOpenBookings(user) {
       body: `The family cancelled the ${SERVICE_CATALOG[booking.serviceType].label.toLowerCase()}.`,
       link: '/caregiver/bookings',
     });
-    emitToUsers([booking.caregiverId], 'booking:updated', { id: booking.id });
+    await emitToUsers([booking.caregiverId], 'booking:updated', { id: booking.id });
   }
 
   await Booking.updateMany(
@@ -194,5 +194,4 @@ export async function deleteAccount(user) {
     ConsentLog.updateMany({ userId: user.id }, { withdrawnAt: new Date() }),
   ]);
   await User.deleteOne({ _id: user.id });
-  disconnectUser(user.id);
 }

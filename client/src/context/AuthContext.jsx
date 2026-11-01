@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
-import { socket } from '../api/socket';
+import { startLiveUpdates, stopLiveUpdates } from '../api/live';
 import { AuthContext } from './useAuth';
 
 export function AuthProvider({ children }) {
@@ -27,8 +27,8 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!userId) return undefined;
 
-    socket.connect();
-    return () => socket.disconnect();
+    startLiveUpdates();
+    return stopLiveUpdates;
   }, [userId]);
 
   const login = useCallback(async (credentials) => {

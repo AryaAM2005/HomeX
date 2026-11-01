@@ -1,5 +1,5 @@
 import { Notification } from '../models/Notification.js';
-import { emitToUsers } from '../sockets/index.js';
+import { emitToUsers } from '../utils/live.js';
 import { toPublicNotification } from '../utils/notifications.js';
 
 export async function listNotifications(req, res) {
@@ -13,6 +13,6 @@ export async function listNotifications(req, res) {
 
 export async function markAllRead(req, res) {
   await Notification.updateMany({ userId: req.user.id, read: false }, { read: true });
-  emitToUsers([req.user.id], 'notifications:read', {});
+  await emitToUsers([req.user.id], 'notifications:read', {});
   res.status(204).end();
 }

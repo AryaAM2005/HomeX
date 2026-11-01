@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { Alert } from '../models/Alert.js';
 import { Booking, BOOKING_STATUSES } from '../models/Booking.js';
 import { CaregiverProfile } from '../models/CaregiverProfile.js';
@@ -9,7 +9,6 @@ import { Plan } from '../models/Plan.js';
 import { fromPoint } from '../models/point.js';
 import { Subscription } from '../models/Subscription.js';
 import { User } from '../models/User.js';
-import { disconnectUser } from '../sockets/index.js';
 import { ApiError } from '../utils/ApiError.js';
 import { redistributeFamilies } from '../utils/careManagers.js';
 import { notify } from '../utils/notifications.js';
@@ -121,7 +120,6 @@ export async function updateUser(req, res) {
   if (!user) throw new ApiError(404, 'We could not find that user');
 
   if (!user.isActive) {
-    disconnectUser(user.id);
     if (user.role === 'careManager') await redistributeFamilies(user.id);
     if (user.role === 'caregiver') await warnCareManagers(user);
   }
@@ -150,7 +148,7 @@ export async function createCareManager(req, res) {
     phone,
     role: 'careManager',
     isVerified: true,
-    passwordHash: await bcrypt.hash(password, 12),
+    passwordHash: await bcrypt.hash(password, 10),
   });
   res.status(201).json({ careManager: { ...toAdminUser(user), families: 0 } });
 }

@@ -42,7 +42,7 @@ The first page load can show a proxy error in the terminal while the API starts.
    npm run seed
    ```
 
-Check-ins are dated from the day you seed, so seed close to a demo. To start again, stop `npm run dev`, delete `server/.mongo-data` and `server/uploads`, then repeat steps 4 and 5.
+Check-ins are dated from the day you seed, so seed close to a demo. To start again, stop `npm run dev`, delete `server/.mongo-data`, then repeat steps 4 and 5.
 
 ### Using MongoDB Atlas
 
@@ -54,6 +54,7 @@ Put your `mongodb+srv://` connection string in `MONGODB_URI` in `server/.env`. `
 | --- | --- |
 | `npm run dev` | Runs the database, API and website together |
 | `npm run seed` | Adds the full demo data. The database must be running |
+| `npm run seed:deploy` | Adds the demo data to the deployed database, using `deploy.env` |
 | `npm run wellness` | Builds this week's wellness reports now, for demos. The database must be running |
 | `npm test` | Runs the API tests |
 | `npm run lint` | Runs ESLint |
@@ -93,7 +94,7 @@ Staff accounts are created the first time the server starts. Changing the passwo
 Plans live in MongoDB. The three default plans are added the first time the server starts, and after that admins edit them at `/admin/plans`. Admins create employer codes at `/admin/employer-codes`.
 
 - **Free trial:** a customer's first plan starts with 7 free days. Later plans are charged straight away.
-- **Billing job:** every hour, and when the server starts, `server/jobs/subscriptionJob.js` ends finished trials and renews plans that are due. To test without waiting 7 days, use **End trial and pay now** on the Billing page.
+- **Billing job:** every hour, `server/jobs/subscriptionJob.js` ends finished trials and renews plans that are due. To test without waiting 7 days, use **End trial and pay now** on the Billing page.
 - **Plan changes:** a new plan starts immediately, and its price applies from the next billing date. There is no proration.
 - **Cancelling:** no further charges are made. The plan's last date stays on the Billing page.
 - **Referrals:** both families get Rs. 500 credit when the referred family makes its first payment, not when its trial starts. Credit is used automatically on the next payment.
@@ -113,7 +114,7 @@ A new caregiver appears in search only after they complete their profile, upload
 
 - **Check-ins:** caregivers log these from `/caregiver`. A home visit needs GPS and a photo, and a phone call does not. Families see the latest check-in, a calendar and 30 days of vitals charts.
 - **Medicines:** families and caregivers manage the schedule. Dose times and care days are always India time, wherever the viewer is.
-- **Live updates:** Socket.IO sends `alert:new`, `alert:updated`, `checkin:new` and notifications. Clients only listen, and logging out closes the connection.
+- **Live updates:** open pages ask `GET /api/live` for anything new every 4 seconds, and pause while the tab is hidden. The server saves `alert:new`, `alert:updated`, `checkin:new` and notifications as `LiveEvent` rows for an hour, addressed to one user each, so nobody can read another person's events.
 - **SOS:** the red button is on every logged-in page. Each parent also has a private page with one big button and no login. Set it up from My Parents. Repeated presses during one emergency stay as one alert.
 - **Handling an alert:** the care manager acknowledges it, then resolves it with a note, at `/care-manager/alerts`. An SOS nobody acknowledges within 5 minutes goes to `/admin/alerts`. If a family has no care manager, it goes there straight away.
 
@@ -125,7 +126,7 @@ Alerts are also raised automatically:
 | Missed medicine | A dose is marked missed, or stays unlogged 4 hours after it was due, on plans with daily check-ins |
 | Missed check-in | Nothing is logged by 8 PM India time on daily plans, or within 7 days on the weekly plan |
 
-`server/jobs/careJob.js` checks for escalations every 30 seconds, and for missed care and reminders every 15 minutes.
+`server/utils/scheduler.js` runs escalation checks every 30 seconds, and missed care and reminders every 15 minutes. Locally these run on a timer. On Vercel nothing runs between requests, so the checks happen when a page polls, when a parent is on their SOS page after pressing it, and once a day from Vercel's cron. See [Limits](#limits-of-the-free-plans).
 
 The vitals limits are placeholders for the demo. Have a clinician review them before real use.
 
@@ -180,13 +181,11 @@ Have someone qualified check this against the DPDP Act before real use. The rete
 
 ## Uploaded files
 
-Files are stored in `server/uploads`, which is not a public folder. ID, police and training documents can only be opened through a logged-in route, by that caregiver or an admin. Check-in photos follow the same rule as the parent's health records. Uploads must be a real PDF, JPG or PNG of 5 MB or less. `server/utils/storage.js` is the one place to connect Cloudinary.
-
-Render's free tier does not keep local files between deploys, so move to Cloudinary before relying on uploads in a deployed demo.
+Files are stored in MongoDB, because Vercel's disk does not last. ID, police and training documents can only be opened through a logged-in route, by that caregiver or an admin. Check-in photos follow the same rule as the parent's health records. Uploads must be a real PDF, JPG or PNG of 4 MB or less, and all the files in one report must fit in 4 MB together. The browser shrinks photos before sending them. `server/utils/storage.js` is the one place to connect Cloudinary.
 
 ## Password reset emails
 
-If `SMTP_HOST` is empty, reset emails are printed in the `npm run dev` terminal instead of being sent. Copy the link from there.
+If `SMTP_HOST` is empty, reset emails are printed in the `npm run dev` terminal instead of being sent. Copy the link from there. On Vercel they appear in the project's Logs tab.
 
 ## Placeholders to replace
 
@@ -197,8 +196,9 @@ If `SMTP_HOST` is empty, reset emails are printed in the `npm run dev` terminal 
 ## Project layout
 
 ```
+api/                    Vercel entry point
 client/                 React + Vite + Tailwind
-  src/api/              Axios instance and Socket.IO connection
+  src/api/              Axios instance and live updates
   src/components/       Shared UI
   src/context/          Current user, login and logout
   src/data/             Site details
@@ -212,10 +212,8 @@ server/                 Node + Express
   models/               Mongoose schemas
   routes/               API routes
   scripts/              Local development database
-  sockets/              Socket.IO login and rooms
   tests/                API and live event tests
-  uploads/              Uploaded files (private, not in git)
-  utils/                Env config, sessions, mail, pricing, billing, storage, validation schemas
+  utils/                Env config, sessions, mail, pricing, billing, storage, scheduler, validation schemas
   seed.js               Demo caregivers
 ```
 
@@ -225,7 +223,7 @@ Login sets a 7-day JWT in an httpOnly cookie. Each token carries the user's `tok
 
 ## Requirements
 
-`npm test` runs 209 API and live event tests. Test names carry their requirement ID, like `FR-22 SOS`, so you can map them to test cases in a lab report.
+`npm test` runs 219 API and live event tests. Test names carry their requirement ID, like `FR-22 SOS`, so you can map them to test cases in a lab report.
 
 | Requirements | Module | How it is checked |
 | --- | --- | --- |
@@ -239,7 +237,7 @@ Login sets a 7-day JWT in an httpOnly cookie. Each token carries the user's `tok
 
 Measured on a development laptop:
 
-- **NFR-5:** an SOS reached a care manager's open page about 10 ms after the request finished, on one machine.
+- **NFR-5:** an SOS reached a care manager's open page in about 1.3 seconds, raised on one server and read on another. A page polls every 4 seconds, so that is the usual worst case.
 - **NFR-6:** the nearby search took about 25 ms with 10,000 caregivers.
 - **NFR-8:** an axe WCAG 2.1 AA scan found no violations across 13 main pages. Automated scans only catch part of WCAG, so this does not replace testing with real assistive technology.
 
@@ -251,21 +249,19 @@ Not done:
 
 ## Deploying
 
-The website runs on Vercel, the backend on Render and the database on MongoDB Atlas, all on free tiers.
+Everything runs free, on Vercel's Hobby plan and a MongoDB Atlas M0 cluster. There is no separate backend: `api/index.js` runs the Express app as one Vercel Function, and the site calls it on the same domain, so the login cookie stays first-party.
 
-The backend needs a server that stays running, for live alerts, the 30-second SOS escalation check and uploaded files. Vercel's free plan cannot do this: its scheduled jobs run once a day at most.
+1. **MongoDB Atlas:** create a free M0 cluster in Mumbai, to sit beside Vercel's `bom1` region. Add a database user. Under Network Access, allow `0.0.0.0/0`, because Vercel has no fixed address on the free plan. Copy the connection string, and add `/homex` before the `?`.
+2. **Settings:** copy `deploy.env.example` to `deploy.env`, which git ignores, and fill it in.
+3. **Demo data:** run `npm run seed:deploy`. This also creates the staff accounts and plans.
+4. **Vercel:** import this repo. `vercel.json` sets the build. Under Environment Variables, paste the contents of `deploy.env`, then deploy.
 
-1. **MongoDB Atlas:** create a free cluster and a database user. Under Network Access, allow `0.0.0.0/0`, because Render's free tier has no fixed address. Copy the connection string.
-2. **Render:** choose New, then Blueprint, and pick this repo. `render.yaml` sets everything up. Paste the Atlas connection string into `MONGODB_URI`, and your Vercel address into `CLIENT_URL`. If you don't have it yet, use a placeholder and update it after step 4.
-3. **`vercel.json`:** if your Render address is not `homex-api.onrender.com`, change both rewrite destinations to match, and push.
-4. **Vercel:** import this repo with no changes. `vercel.json` sets the build. Add no environment variables.
+### Limits of the free plans
 
-Vercel forwards `/api` and `/socket.io` to Render, so the browser only ever talks to one domain. That keeps the login cookie first-party, which Safari requires.
-
-Render generates the passwords. Find them under Environment on the Render service. `SEED_ON_START` loads the demo data, so remove it before real use.
-
-Limits of the free tiers:
-
-- **Render sleeps after about 15 minutes idle.** The next visit takes about a minute to wake it, and scheduled jobs stop while it sleeps, including SOS escalation. Open the site a few minutes before a demo. For real use, move to a paid Render plan, which stays awake.
-- **Uploaded files disappear when Render redeploys or restarts.** That covers caregiver documents, check-in photos and report attachments. Connect Cloudinary in `server/utils/storage.js` before real use.
-- **Email:** with no SMTP settings, password reset links only appear in the Render logs.
+- **No commercial use.** Vercel's Hobby plan is for personal, non-commercial projects. A demo is fine. A service charging real families needs a paid plan.
+- **SOS escalation needs someone online.** An unanswered SOS reaches admins only when a page is open somewhere, or the parent stays on their SOS page, or at the daily cron at 9:30 PM India time. The alert itself still reaches open pages straight away. Do not rely on this for real emergencies.
+- **Reminders and billing wait for visitors too.** They are safe to run late, and catch up on the next visit.
+- **Monthly usage:** Vercel allows 1 million requests and 4 CPU hours. One open page uses 900 requests an hour, so that is about 1,100 page-hours a month. Over the limit, the site is paused rather than charged.
+- **Storage:** Atlas M0 holds 512 MB, including every uploaded file.
+- **Email:** with no SMTP settings, password reset links only appear in Vercel's Logs tab, which keeps them for an hour.
+- **Slow first visit:** after a quiet spell, the first request takes a few seconds while the function starts.

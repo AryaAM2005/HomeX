@@ -1,4 +1,3 @@
-import cron from 'node-cron';
 import { expireBooking } from '../controllers/bookingController.js';
 import { Alert } from '../models/Alert.js';
 import { Assignment } from '../models/Assignment.js';
@@ -157,22 +156,4 @@ export async function remindTrialEnding(now = new Date()) {
 export async function expireUnansweredBookings(now = new Date()) {
   const overdue = await Booking.find({ status: 'REQUESTED', scheduledAt: { $lte: now } });
   for (const booking of overdue) await expireBooking(booking);
-}
-
-function runSafely(task) {
-  return () => task().catch((err) => console.error(`${task.name} failed:`, err));
-}
-
-// Every task is safe to repeat, so a failed or skipped run is covered by the next one.
-export function startCareJobs() {
-  cron.schedule('*/30 * * * * *', runSafely(escalateUnansweredSos));
-
-  const quarterHourly = [
-    sendMedicineReminders,
-    flagMissedMedicines,
-    flagMissedCheckIns,
-    remindTrialEnding,
-    expireUnansweredBookings,
-  ];
-  cron.schedule('*/15 * * * *', () => quarterHourly.forEach((task) => runSafely(task)()));
 }

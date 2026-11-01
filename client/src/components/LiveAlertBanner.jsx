@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { BellRing, X } from 'lucide-react';
 import { Link } from 'react-router';
-import { useLiveEvents } from '../api/socket';
+import { useLiveEvents } from '../api/live';
 import { useAuth } from '../context/useAuth';
 
 const ALERTS_PAGE = {

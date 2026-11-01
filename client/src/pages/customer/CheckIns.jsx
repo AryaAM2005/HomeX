@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { apiUrl } from '../../api/client';
-import { useLiveEvents } from '../../api/socket';
+import { useLiveEvents } from '../../api/live';
 import CheckInCalendar from '../../components/CheckInCalendar';
 import LoadError from '../../components/LoadError';
 import Loading from '../../components/Loading';

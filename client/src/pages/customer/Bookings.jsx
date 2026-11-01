@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { api, getErrorMessage, getFieldErrors } from '../../api/client';
-import { useLiveEvents } from '../../api/socket';
+import { useLiveEvents } from '../../api/live';
 import FormAlert from '../../components/FormAlert';
 import FormTextarea from '../../components/FormTextarea';
 import LoadError from '../../components/LoadError';

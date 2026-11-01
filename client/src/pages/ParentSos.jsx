@@ -5,6 +5,8 @@ import { api } from '../api/client';
 import { HELPLINE } from '../data/site';
 import { useApi } from '../hooks/useApi';
 
+const PING_MS = 30_000;
+
 // The parent may never log in, so this is one large button behind a private link.
 export default function ParentSos() {
   const { token } = useParams();
@@ -14,6 +16,14 @@ export default function ParentSos() {
   useEffect(() => {
     document.title = 'SOS | HOMEX';
   }, []);
+
+  // Keeps the escalation clock moving even if nobody else has HOMEX open.
+  useEffect(() => {
+    if (state !== 'sent') return undefined;
+
+    const timer = setInterval(() => api.get(`/alerts/public/${token}`).catch(() => {}), PING_MS);
+    return () => clearInterval(timer);
+  }, [state, token]);
 
   const send = async () => {
     setState('sending');

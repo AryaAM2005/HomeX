@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { useLiveEvents } from '../../api/socket';
+import { useLiveEvents } from '../../api/live';
 import DashboardShell from '../../components/DashboardShell';
 import LoadError from '../../components/LoadError';
 import Loading from '../../components/Loading';

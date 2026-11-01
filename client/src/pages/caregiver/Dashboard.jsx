@@ -1,6 +1,6 @@
 import { CheckCircle2 } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
-import { useLiveEvents } from '../../api/socket';
+import { useLiveEvents } from '../../api/live';
 import DashboardShell from '../../components/DashboardShell';
 import FormAlert from '../../components/FormAlert';
 import LoadError from '../../components/LoadError';

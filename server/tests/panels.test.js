@@ -1,18 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import request from 'supertest';
 
-const uploadDir = await mkdtemp(path.join(os.tmpdir(), 'homex-panels-'));
-
 process.env.NODE_ENV = 'test';
 process.env.MONGODB_URI = 'mongodb://unused/homex';
 process.env.JWT_SECRET = 'test-secret-that-is-at-least-32-characters';
-process.env.UPLOAD_DIR = uploadDir;
 
 // Imported after the variables above, because env.js reads them on load.
 const { app } = await import('../app.js');
@@ -31,6 +25,7 @@ const { Payment } = await import('../models/Payment.js');
 const { Plan } = await import('../models/Plan.js');
 const { Review } = await import('../models/Review.js');
 const { Subscription } = await import('../models/Subscription.js');
+const { StoredFile } = await import('../models/StoredFile.js');
 const { User } = await import('../models/User.js');
 const { WellnessReport } = await import('../models/WellnessReport.js');
 const { ensurePlans } = await import('../utils/ensurePlans.js');
@@ -139,7 +134,6 @@ describe('care manager, admin and account data', () => {
   after(async () => {
     await mongoose.disconnect();
     await mongo.stop();
-    await rm(uploadDir, { recursive: true, force: true });
   });
 
   beforeEach(async () => {
@@ -523,7 +517,7 @@ describe('care manager, admin and account data', () => {
         .send({ parentId: stranger.parentId })
         .expect(201);
 
-      const filesBefore = (await readdir(uploadDir)).length;
+      const filesBefore = await StoredFile.countDocuments();
       assert.ok(filesBefore > 0);
 
       await remove(family.customer).expect(204);
@@ -533,7 +527,7 @@ describe('care manager, admin and account data', () => {
       for (const model of [CheckIn, Medicine, Alert, Subscription]) {
         assert.equal(await model.exists({ parentId }), null);
       }
-      assert.equal((await readdir(uploadDir)).length, filesBefore - 1);
+      assert.equal(await StoredFile.countDocuments(), filesBefore - 1);
       await family.customer.agent.get('/api/auth/me').expect(401);
 
       assert.ok(await Parent.exists({ _id: stranger.parentId }));
@@ -636,10 +630,10 @@ describe('care manager, admin and account data', () => {
         .field('type', 'id')
         .attach('file', PDF, 'id.pdf')
         .expect(201);
-      const before = (await readdir(uploadDir)).length;
+      const before = await StoredFile.countDocuments();
 
       await remove(caregiver).expect(204);
-      assert.equal((await readdir(uploadDir)).length, before - 1);
+      assert.equal(await StoredFile.countDocuments(), before - 1);
     });
 
     it('does not let staff delete themselves', async () => {

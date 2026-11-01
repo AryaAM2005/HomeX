@@ -1,6 +1,6 @@
 import { Bell } from 'lucide-react';
 import { Link } from 'react-router';
-import { useLiveEvents } from '../api/socket';
+import { useLiveEvents } from '../api/live';
 import { useApi } from '../hooks/useApi';
 
 export default function NotificationBell() {

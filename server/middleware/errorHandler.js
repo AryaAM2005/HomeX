@@ -24,7 +24,7 @@ export function errorHandler(err, req, res, next) {
 
   if (err.name === 'MulterError') {
     const message =
-      err.code === 'LIMIT_FILE_SIZE' ? 'Files must be 5 MB or smaller' : 'That upload did not work';
+      err.code === 'LIMIT_FILE_SIZE' ? 'Files must be 4 MB or smaller' : 'That upload did not work';
     return res.status(400).json({ error: { message } });
   }
 

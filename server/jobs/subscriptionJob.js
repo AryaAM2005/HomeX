@@ -1,4 +1,3 @@
-import cron from 'node-cron';
 import { Subscription } from '../models/Subscription.js';
 import { billSubscription } from '../utils/billing.js';
 
@@ -17,10 +16,4 @@ export async function processDueSubscriptions(now = new Date()) {
       console.error(`Could not bill subscription ${subscription.id}:`, err);
     }
   }
-}
-
-export function startSubscriptionJob() {
-  const run = () => processDueSubscriptions().catch((err) => console.error(err));
-  cron.schedule('0 * * * *', run);
-  run();
 }

@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { Alert } from '../models/Alert.js';
 import { Parent } from '../models/Parent.js';
 import { announceUpdate, raiseAlert, toPublicAlert } from '../utils/alerts.js';
+import { runDueJobs } from '../utils/scheduler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { findParentFor } from '../utils/parentAccess.js';
 
@@ -41,6 +42,8 @@ async function findParentByToken(token) {
 
 export async function getPublicSosPage(req, res) {
   const parent = await findParentByToken(req.params.token);
+  // A parent waiting on this page keeps escalation moving when nobody else is online.
+  await runDueJobs();
   res.json({ name: parent.name.split(' ')[0] });
 }
 
@@ -136,6 +139,6 @@ export async function updateAlert(req, res) {
   if (!alert) throw new ApiError(409, 'This alert has already moved on. Refresh to see the latest.');
 
   const parent = await Parent.findById(alert.parentId, 'name');
-  announceUpdate(alert, parent?.name ?? 'Removed parent');
+  await announceUpdate(alert, parent?.name ?? 'Removed parent');
   res.json({ alert: toPublicAlert(alert, parent?.name ?? 'Removed parent') });
 }

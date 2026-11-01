@@ -1,4 +1,3 @@
-import cron from 'node-cron';
 import { addDays, istDate, mondayOf, startOfIstDay } from '../utils/time.js';
 import { createWellnessReport } from '../utils/wellness.js';
 import { findCoveredParents } from './careJob.js';
@@ -19,10 +18,4 @@ export async function generateWellnessReports(now = new Date()) {
       console.error(`Could not create a wellness report for ${parent.id}:`, err);
     }
   }
-}
-
-export function startWellnessJob() {
-  const run = () => generateWellnessReports().catch((err) => console.error(err));
-  cron.schedule('5 * * * *', run);
-  run();
 }

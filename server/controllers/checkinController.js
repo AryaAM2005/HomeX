@@ -4,13 +4,13 @@ import { Medicine } from '../models/Medicine.js';
 import { Parent } from '../models/Parent.js';
 import { fromPoint, toPoint } from '../models/point.js';
 import { User } from '../models/User.js';
-import { emitToUsers } from '../sockets/index.js';
+import { emitToUsers } from '../utils/live.js';
 import { raiseAlert } from '../utils/alerts.js';
 import { ApiError } from '../utils/ApiError.js';
 import { distanceKm } from '../utils/geo.js';
 import { notify } from '../utils/notifications.js';
 import { findParentFor } from '../utils/parentAccess.js';
-import { saveFile, filePath } from '../utils/storage.js';
+import { saveFile, sendFile } from '../utils/storage.js';
 import { istDate, istMonth } from '../utils/time.js';
 import { findAbnormalVitals } from '../utils/vitals.js';
 import { getLoggedDoses } from './medicineController.js';
@@ -92,7 +92,7 @@ export async function logCheckIn(req, res) {
   });
 
   const payload = toPublicCheckIn(checkIn, req.user.name);
-  emitToUsers(
+  await emitToUsers(
     [parent.customerId, parent.careManagerId].filter(Boolean),
     'checkin:new',
     { ...payload, parent: { id: parent.id, name: parent.name } },
@@ -224,5 +224,5 @@ export async function getCheckInPhoto(req, res) {
   res.type(checkIn.photo.mime);
   res.set('Cache-Control', 'private, no-store');
   res.set('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.sendFile(filePath(checkIn.photo.file));
+  await sendFile(res, checkIn.photo.file);
 }
