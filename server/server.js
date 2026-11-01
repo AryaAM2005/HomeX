@@ -5,6 +5,7 @@ import { startCareJobs } from './jobs/careJob.js';
 import { startSubscriptionJob } from './jobs/subscriptionJob.js';
 import { startWellnessJob } from './jobs/wellnessJob.js';
 import { initSockets } from './sockets/index.js';
+import { seedDemoData } from './utils/demoSeed.js';
 import { env } from './utils/env.js';
 import { ensurePlans } from './utils/ensurePlans.js';
 import { ensureStaff } from './utils/ensureStaff.js';
@@ -13,8 +14,9 @@ try {
   await mongoose.connect(env.MONGODB_URI);
   await ensureStaff();
   await ensurePlans();
+  if (env.SEED_ON_START === 'true') console.log(await seedDemoData());
 } catch (err) {
-  console.error(`Could not connect to MongoDB at startup: ${err.message}`);
+  console.error(`Could not start: ${err.message}`);
   process.exit(1);
 }
 

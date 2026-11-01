@@ -4,11 +4,11 @@ import { env, isProduction } from './env.js';
 export const COOKIE_NAME = 'homex_session';
 const SESSION_DAYS = 7;
 
-// The frontend and API sit on different domains in production, so the cookie
-// must be sameSite "none" there; that in turn requires HTTPS (secure).
+// In production the website forwards /api to the backend, so this stays a first-party
+// cookie. A cookie shared across two domains would be blocked as third-party by Safari.
 const cookieOptions = {
   httpOnly: true,
-  sameSite: isProduction ? 'none' : 'lax',
+  sameSite: 'lax',
   secure: isProduction,
   path: '/',
 };

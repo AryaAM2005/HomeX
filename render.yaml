@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: homex-api
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm ci -w server --omit=dev
+    startCommand: npm start -w server
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 24
+      # Paste these two into Render when it asks.
+      - key: MONGODB_URI
+        sync: false
+      - key: CLIENT_URL
+        sync: false
+      # Render creates these, and shows them under Environment.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: CARE_MANAGER_PASSWORD
+        generateValue: true
+      - key: SEED_PASSWORD
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: admin@homex.test
+      - key: CARE_MANAGER_EMAIL
+        value: manager@homex.test
+      # Loads the demo families on start. Safe to leave on: nothing is added twice.
+      - key: SEED_ON_START
+        value: "true"

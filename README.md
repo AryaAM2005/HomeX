@@ -251,7 +251,21 @@ Not done:
 
 ## Deploying
 
-Host the frontend on Vercel or Netlify, the backend on Render, and the database on MongoDB Atlas.
+The website runs on Vercel, the backend on Render and the database on MongoDB Atlas, all on free tiers.
 
-- **Backend:** set `NODE_ENV=production`, `CLIENT_URL` to the frontend's address, and the other values from `server/.env.example`. In production, cookies automatically use `sameSite: "none"` and `secure: true`.
-- **Frontend:** set `VITE_API_URL` to the backend's `/api` address.
+The backend needs a server that stays running, for live alerts, the 30-second SOS escalation check and uploaded files. Vercel's free plan cannot do this: its scheduled jobs run once a day at most.
+
+1. **MongoDB Atlas:** create a free cluster and a database user. Under Network Access, allow `0.0.0.0/0`, because Render's free tier has no fixed address. Copy the connection string.
+2. **Render:** choose New, then Blueprint, and pick this repo. `render.yaml` sets everything up. Paste the Atlas connection string into `MONGODB_URI`, and your Vercel address into `CLIENT_URL`. If you don't have it yet, use a placeholder and update it after step 4.
+3. **`vercel.json`:** if your Render address is not `homex-api.onrender.com`, change both rewrite destinations to match, and push.
+4. **Vercel:** import this repo with no changes. `vercel.json` sets the build. Add no environment variables.
+
+Vercel forwards `/api` and `/socket.io` to Render, so the browser only ever talks to one domain. That keeps the login cookie first-party, which Safari requires.
+
+Render generates the passwords. Find them under Environment on the Render service. `SEED_ON_START` loads the demo data, so remove it before real use.
+
+Limits of the free tiers:
+
+- **Render sleeps after about 15 minutes idle.** The next visit takes about a minute to wake it, and scheduled jobs stop while it sleeps, including SOS escalation. Open the site a few minutes before a demo. For real use, move to a paid Render plan, which stays awake.
+- **Uploaded files disappear when Render redeploys or restarts.** That covers caregiver documents, check-in photos and report attachments. Connect Cloudinary in `server/utils/storage.js` before real use.
+- **Email:** with no SMTP settings, password reset links only appear in the Render logs.

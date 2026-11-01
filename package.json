@@ -23,5 +23,8 @@
     "eslint": "^10.14.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.14.0"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

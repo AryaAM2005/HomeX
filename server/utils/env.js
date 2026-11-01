@@ -19,6 +19,7 @@ const schema = z.object({
   CARE_MANAGER_EMAIL: optionalText,
   CARE_MANAGER_PASSWORD: optionalText,
   SEED_PASSWORD: optionalText,
+  SEED_ON_START: optionalText,
   UPLOAD_DIR: optionalText,
   SMTP_HOST: optionalText,
   SMTP_PORT: z.coerce.number().int().positive().default(587),

@@ -37,5 +37,8 @@
     "mongodbMemoryServer": {
       "downloadDir": "../node_modules/.cache/mongodb-memory-server"
     }
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

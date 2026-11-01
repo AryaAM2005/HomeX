@@ -23,8 +23,9 @@ import { env, isProduction } from './utils/env.js';
 
 export const app = express();
 
-// Render and similar hosts sit behind one proxy; rate limiting needs the real client IP.
-if (isProduction) app.set('trust proxy', 1);
+// Requests pass through Vercel and then Render's load balancer. Without counting both,
+// every visitor would look like one IP and share a single rate limit.
+if (isProduction) app.set('trust proxy', 2);
 
 app.use(helmet());
 app.use(cors({ origin: env.CLIENT_URL, credentials: true }));
