@@ -1,0 +1,27 @@
+{
+  "name": "homex",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "HomeX connects adult children with verified local caregivers for their elderly parents.",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently -n db,api,web -c gray,cyan,magenta \"npm run db -w server\" \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w client",
+    "start": "npm start -w server",
+    "test": "npm test -w server",
+    "seed": "npm run seed -w server",
+    "wellness": "npm run wellness -w server",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.6",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0"
+  }
+}

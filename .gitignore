@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+
+# Local development database and user uploads
+server/.mongo-data/
+server/uploads/
+
+# Local editor and tool settings
+.claude/

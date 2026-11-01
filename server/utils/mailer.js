@@ -1,0 +1,19 @@
+import nodemailer from 'nodemailer';
+import { env } from './env.js';
+
+const transport = env.SMTP_HOST
+  ? nodemailer.createTransport({
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
+      auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
+    })
+  : null;
+
+// Without SMTP settings the message is printed, so password reset still works in development.
+export async function sendMail({ to, subject, text }) {
+  if (!transport) {
+    console.log(`[mail] To: ${to}\n[mail] Subject: ${subject}\n[mail] ${text}`);
+    return;
+  }
+  await transport.sendMail({ from: env.MAIL_FROM, to, subject, text });
+}

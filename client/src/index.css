@@ -1,0 +1,129 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/figtree';
+@import '@fontsource-variable/fraunces';
+
+@theme {
+  --font-sans: 'Figtree Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Fraunces Variable', ui-serif, Georgia, serif;
+
+  --color-cream: #fbf6ee;
+  --color-sand: #f3e9da;
+  --color-line: #e2d5c2;
+  --color-ink: #2b2420;
+  --color-ink-soft: #5e5249;
+  --color-clay: #a8431f;
+  --color-clay-dark: #86331a;
+  --color-marigold: #e9a23b;
+  --color-leaf: #2f6b4f;
+  --color-danger: #a3261b;
+  --color-sos: #c4261d;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 7.5rem;
+  }
+
+  body {
+    background: var(--color-cream);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 1.125rem;
+    line-height: 1.6;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-clay);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 3rem;
+    padding: 0.625rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    transition: background-color 150ms, color 150ms, border-color 150ms;
+  }
+
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+
+  .btn-primary {
+    background: var(--color-clay);
+    color: white;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-clay-dark);
+  }
+
+  .btn-secondary {
+    border: 2px solid var(--color-ink);
+    color: var(--color-ink);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--color-ink);
+    color: var(--color-cream);
+  }
+
+  .text-link {
+    color: var(--color-clay);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .text-link:hover {
+    color: var(--color-clay-dark);
+  }
+
+  .map-pin {
+    display: block;
+    width: 26px;
+    height: 26px;
+    border: 3px solid white;
+    border-radius: 50% 50% 50% 0;
+    box-shadow: 0 1px 4px rgb(43 36 32 / 0.5);
+    transform: rotate(-45deg);
+  }
+
+  .map-pin-home {
+    background: var(--color-clay);
+  }
+
+  .map-pin-caregiver {
+    background: var(--color-leaf);
+  }
+}
